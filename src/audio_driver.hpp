@@ -31,8 +31,11 @@
 namespace SooperLooper {
 
 typedef float sample_t;
+typedef float event_t;
 typedef uint32_t nframes_t;
-typedef uint32_t port_id_t;
+// TODO: hacky solution to support event ports is to give them
+// negative IDs
+typedef int32_t port_id_t;
 	
 	
 class Engine;
@@ -75,14 +78,21 @@ class AudioDriver
 	virtual bool  create_input_port (std::string name, port_id_t & port_id) = 0;
 	virtual bool  create_output_port (std::string name, port_id_t & port_id) = 0;
 
+	virtual bool  create_input_event_port (std::string name, port_id_t & port_id) = 0;
+	virtual bool  create_output_event_port (std::string name, port_id_t & port_id) = 0;
+
 	virtual bool destroy_input_port (port_id_t portid) = 0;
 	virtual bool destroy_output_port (port_id_t portid) = 0;
 	
 	virtual sample_t * get_input_port_buffer (port_id_t port, nframes_t nframes) = 0;
 	virtual sample_t * get_output_port_buffer (port_id_t port, nframes_t nframes) = 0;
+	virtual std::vector<event_t> get_input_events (port_id_t port) = 0;
+	virtual void put_output_events(port_id_t port, std::vector<event_t> const& events) = 0;
 
 	virtual unsigned int get_input_port_count () = 0;
 	virtual unsigned int get_output_port_count () = 0;
+	virtual unsigned int get_input_event_port_count () = 0;
+	virtual unsigned int get_output_event_port_count () = 0;
 
 	virtual nframes_t get_input_port_latency (port_id_t portid) = 0;
 	virtual nframes_t get_output_port_latency (port_id_t portid) = 0;

@@ -264,6 +264,29 @@ JackAudioDriver::create_input_port (std::string name, port_id_t & portid)
 }
 
 bool
+JackAudioDriver::create_input_event_port (std::string name, port_id_t & portid)
+{
+	if (!_jack) return false;
+	
+	jack_port_t * port;
+	
+	if ((port = jack_port_register (_jack, name.c_str(), JACK_DEFAULT_MIDI_TYPE,
+						   JackPortIsInput, 0)) == 0) {
+		
+		cerr << "JackAudioDriver: cannot register input MIDI port" << endl;
+		return false;
+	}
+
+	{
+		//LockMonitor mon(_port_lock, __LINE__, __FILE__);
+		_input_event_ports.push_back (port);
+		// TODO: hacky to give them negative IDs
+		portid = -_input_event_ports.size();
+	}
+	return true;
+}
+
+bool
 JackAudioDriver::create_output_port (std::string name, port_id_t & portid)
 {
 	if (!_jack) return false;
@@ -273,7 +296,7 @@ JackAudioDriver::create_output_port (std::string name, port_id_t & portid)
 	if ((port = jack_port_register (_jack, name.c_str(), JACK_DEFAULT_AUDIO_TYPE,
 						   JackPortIsOutput, 0)) == 0) {
 		
-		cerr << "JackAudioDriver: cannot register input port" << endl;
+		cerr << "JackAudioDriver: cannot register output port" << endl;
 		return false;
 	}
 
@@ -281,6 +304,31 @@ JackAudioDriver::create_output_port (std::string name, port_id_t & portid)
 		//LockMonitor mon(_port_lock, __LINE__, __FILE__);
 		_output_ports.push_back (port);
 		portid = _output_ports.size();
+
+	}
+	
+	return true;
+
+}
+
+bool
+JackAudioDriver::create_output_event_port (std::string name, port_id_t & portid)
+{
+	if (!_jack) return false;
+	
+	jack_port_t * port;
+	
+	if ((port = jack_port_register (_jack, name.c_str(), JACK_DEFAULT_MIDI_TYPE,
+						   JackPortIsOutput, 0)) == 0) {
+		
+		cerr << "JackAudioDriver: cannot register output MIDI port" << endl;
+		return false;
+	}
+
+	{
+		//LockMonitor mon(_port_lock, __LINE__, __FILE__);
+		_output_event_ports.push_back (port);
+		portid = -_output_event_ports.size();
 
 	}
 	
@@ -299,6 +347,10 @@ JackAudioDriver::destroy_output_port (port_id_t portid)
 		port = _output_ports[portid-1];
 		_output_ports[portid-1] = 0;
 		return (jack_port_unregister (_jack, port) == 0);
+	} else if (-portid <= _output_event_ports.size() && portid < 0) {
+		port = _output_event_ports[-portid-1];
+		_output_event_ports[-portid-1] = 0;
+		return (jack_port_unregister (_jack, port) == 0);
 	}
 	
 	return false;
@@ -314,6 +366,10 @@ JackAudioDriver::destroy_input_port (port_id_t portid)
 		port = _input_ports[portid-1];
 		_input_ports[portid-1] = 0;
 		return (jack_port_unregister (_jack, port) == 0);
+	} else if (-portid <= _input_event_ports.size() && portid < 0) {
+		port = _input_event_ports[-portid-1];
+		_input_event_ports[-portid-1] = 0;
+		return (jack_port_unregister (_jack, port) == 0);
 	}
 	
 	return false;
@@ -324,7 +380,7 @@ sample_t *
 JackAudioDriver::get_input_port_buffer (port_id_t port, nframes_t nframes)
 {
 	// not locked 
-	if (!_jack || port > _input_ports.size() || port == 0) return 0;
+	if (!_jack || port > _input_ports.size() || port <= 0) return 0;
 
 	return (sample_t*) jack_port_get_buffer (_input_ports[port-1], nframes);	
 }
@@ -333,7 +389,7 @@ sample_t *
 JackAudioDriver::get_output_port_buffer (port_id_t port, nframes_t nframes)
 {
 	// not locked 
-	if (!_jack || port > _output_ports.size() || port == 0) return 0;
+	if (!_jack || port > _output_ports.size() || port <= 0) return 0;
 
 	return (sample_t*) jack_port_get_buffer (_output_ports[port-1], nframes);	
 }
@@ -341,7 +397,7 @@ JackAudioDriver::get_output_port_buffer (port_id_t port, nframes_t nframes)
 nframes_t
 JackAudioDriver::get_input_port_latency (port_id_t port)
 {
-	if (!_jack || port > _input_ports.size() || port == 0) return 0;
+	if (!_jack || port > _input_ports.size() || port <= 0) return 0;
 
 	return jack_port_get_total_latency (_jack, _input_ports[port-1]);
 }
@@ -349,7 +405,7 @@ JackAudioDriver::get_input_port_latency (port_id_t port)
 nframes_t
 JackAudioDriver::get_output_port_latency (port_id_t port)
 {
-	if (!_jack || port > _output_ports.size() || port == 0) return 0;
+	if (!_jack || port > _output_ports.size() || port <= 0) return 0;
 
 	return jack_port_get_total_latency (_jack, _output_ports[port-1]);
 }

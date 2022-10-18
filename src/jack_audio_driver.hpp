@@ -46,14 +46,21 @@ class JackAudioDriver
 	bool  create_input_port (std::string name, port_id_t & portid);
 	bool  create_output_port (std::string name, port_id_t & portid);
 
+	bool  create_input_event_port (std::string name, port_id_t & port_id);
+	bool  create_output_event_port (std::string name, port_id_t & port_id);
+
 	bool destroy_input_port (port_id_t portid);
 	bool destroy_output_port (port_id_t portid);
 	
 	sample_t * get_input_port_buffer (port_id_t port, nframes_t nframes);
 	sample_t * get_output_port_buffer (port_id_t port, nframes_t nframes);
+	std::vector<event_t> get_input_events (port_id_t port);
+	void put_output_events(port_id_t port, std::vector<event_t> const& events);
 
 	unsigned int get_input_port_count () { return _input_ports.size(); }
 	unsigned int get_output_port_count () { return _output_ports.size(); }
+	unsigned int get_input_event_port_count () { return _input_event_ports.size(); }
+	unsigned int get_output_event_port_count () { return _output_event_ports.size(); }
 
 	nframes_t get_input_port_latency (port_id_t portid);
 	nframes_t get_output_port_latency (port_id_t portid);
@@ -96,6 +103,8 @@ class JackAudioDriver
 
 	std::vector<jack_port_t *> _input_ports;
 	std::vector<jack_port_t *> _output_ports;
+	std::vector<jack_port_t *> _input_event_ports;
+	std::vector<jack_port_t *> _output_event_ports;
 
 	bool _timebase_master;
 	TransportInfo _transport_info;
