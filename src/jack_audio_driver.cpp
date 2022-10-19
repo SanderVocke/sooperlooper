@@ -20,9 +20,8 @@
 #include <string>
 #include <iostream>
 
-#include <jack/jack.h>
-
 #include "jack_audio_driver.hpp"
+#include "jack_port_renaming.hpp"
 #include "engine.hpp"
 
 using namespace SooperLooper;
@@ -32,6 +31,8 @@ using namespace std;
 JackAudioDriver::JackAudioDriver(string client_name, string serv_name)
 	: AudioDriver(client_name, serv_name)
 {
+	initialize_jack(); // Initialize the overall Jack wrapper
+	initialize_shoopdaloop_port_renaming(); // Initialize additional wrapper fns
 	_timebase_master = false;
 }
 

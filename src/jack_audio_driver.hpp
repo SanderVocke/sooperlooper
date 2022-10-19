@@ -24,7 +24,8 @@
 #include <vector>
 #include <string>
 
-#include <jack/jack.h>
+// Replace original Jack include by our wrapper
+#include <jack_wrapper.h>
 
 #include "audio_driver.hpp"
 #include "lockmonitor.hpp"
