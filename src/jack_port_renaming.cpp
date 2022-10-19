@@ -18,6 +18,7 @@ jack_nframes_t (*jack_port_get_total_latency_dylibloader_wrapper_jack_orig)( jac
 int (*jack_set_process_callback_dylibloader_wrapper_jack_orig)( jack_client_t*, JackProcessCallback, void*);
 
 constexpr int loops_per_track = 6;
+constexpr bool debug = false;
 
 struct PortRenameRule {
     std::regex pattern;
@@ -33,7 +34,7 @@ std::string gen_track_input_name(std::smatch m) {
     int loop_idx = std::stoi(m[1].str());
     std::ostringstream s;
     s << "track_"
-      << loop_idx/2/loops_per_track
+      << (loop_idx/2/loops_per_track + 1)
       << std::string((loop_idx % 2) ? "_return_" : "_in_")
       << m[2].str();
     return s.str();
@@ -43,7 +44,7 @@ std::string gen_track_output_name(std::smatch m) {
     int loop_idx = std::stoi(m[1].str());
     std::ostringstream s;
     s << "track_"
-      << loop_idx/2/loops_per_track
+      << (loop_idx/2/loops_per_track + 1)
       << std::string((loop_idx % 2) ? "_out_" : "_send_")
       << m[2].str();
     return s.str();
@@ -91,16 +92,22 @@ jack_port_t* jack_port_register_wrapper(jack_client_t* client, const char* name,
 
     auto p = active_real_ports.find(mapped_name);
     if (p == active_real_ports.end()) {
-        std::cout << "Jack wrapper: Registering real port for " << name << " (" << mapped_name << ")" << std::endl;
+        if (debug) {
+            std::cout << "Jack wrapper: Registering real port for " << name << " (" << mapped_name << ")" << std::endl;
+        }
         active_real_ports[mapped_name] = { jack_port_register_dylibloader_wrapper_jack_orig(client, mapped_name.c_str(), type, flags, buffer_size), flags };
     }
 
     auto f = active_fake_ports.find(name);
     if (f == active_fake_ports.end()) {
-        std::cout << "Jack wrapper: Creating new fake port for " << name << " (" << mapped_name << ")" << std::endl;
+        if (debug) {
+            std::cout << "Jack wrapper: Creating new fake port for " << name << " (" << mapped_name << ")" << std::endl;
+        }
         active_fake_ports[name] = { reinterpret_cast<jack_port_t*>(new int), flags };
     } else {
-        std::cout << "Jack wrapper: Re-using fake port already instantiated for " << name << " (" << mapped_name << ")" << std::endl;
+        if (debug) {
+            std::cout << "Jack wrapper: Re-using fake port already instantiated for " << name << " (" << mapped_name << ")" << std::endl;
+        }
     }
 
     active_renames[name] = mapped_name;
@@ -115,7 +122,9 @@ int jack_port_unregister_wrapper(jack_client_t* client, jack_port_t* fake_port) 
         if (it->second.handle == fake_port) {
             fake_port_name = it->first;
             // Delete the fake port
-            std::cout << "Jack wrapper: Erasing fake port " << fake_port_name << std::endl;
+            if (debug) {
+                std::cout << "Jack wrapper: Erasing fake port " << fake_port_name << std::endl;
+            }
             delete reinterpret_cast<int*>(it->second.handle);
             active_fake_ports.erase(it);
             break;
@@ -123,7 +132,9 @@ int jack_port_unregister_wrapper(jack_client_t* client, jack_port_t* fake_port) 
     }
 
     if (fake_port_name == "") {
-        std::cout << "Jack wrapper: unregistering unknown fake port, ignoring" << std::endl;
+        if (debug) {
+            std::cout << "Jack wrapper: unregistering unknown fake port, ignoring" << std::endl;
+        }
         return 0;
     }
 
@@ -136,7 +147,9 @@ int jack_port_unregister_wrapper(jack_client_t* client, jack_port_t* fake_port) 
     }
 
     if (real_port_name == "") {
-        std::cout << "Jack wrapper: deleted fake port " << fake_port_name << " was not associated with any real port" << std::endl;
+        if (debug) {
+            std::cout << "Jack wrapper: deleted fake port " << fake_port_name << " was not associated with any real port" << std::endl;
+        }
         return 0;
     }
 
@@ -148,7 +161,9 @@ int jack_port_unregister_wrapper(jack_client_t* client, jack_port_t* fake_port) 
     if (fake_ports_left == 0) {
         auto rrr = active_real_ports.find(real_port_name);
         if(rrr != active_real_ports.end()) {
-            std::cout << "Jack wrapper: unregister real port " << real_port_name << std::endl;
+            if (debug) {
+                std::cout << "Jack wrapper: unregister real port " << real_port_name << std::endl;
+            }
             auto retval = jack_port_unregister_dylibloader_wrapper_jack_orig(client, rrr->second.handle);
             if (!retval) {
                 active_real_ports.erase(rrr);
