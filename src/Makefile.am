@@ -34,7 +34,9 @@ libslcore_a_SOURCES      = \
 	$(SYSDEP_SRCS)
 
 libsldrivers_a_SOURCES      = \
-	jack_audio_driver.cpp
+	jack_audio_driver.cpp \
+	jack_wrapper.c \
+	jack_port_renaming.cpp
 
 
 sooperlooper_SOURCES = \

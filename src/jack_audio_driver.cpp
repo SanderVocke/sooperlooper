@@ -31,7 +31,7 @@ using namespace std;
 JackAudioDriver::JackAudioDriver(string client_name, string serv_name)
 	: AudioDriver(client_name, serv_name)
 {
-	initialize_jack(); // Initialize the overall Jack wrapper
+	initialize_jack(0); // Initialize the overall Jack wrapper
 	initialize_shoopdaloop_port_renaming(); // Initialize additional wrapper fns
 	_timebase_master = false;
 }
@@ -110,7 +110,7 @@ our_jack_error(const char * err)
 int
 JackAudioDriver::connect_to_jack ()
 {
-	jack_set_error_function (our_jack_error);
+	jack_set_error_function ((void*)our_jack_error);
 
 	_jack = 0;
 
