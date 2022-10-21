@@ -10,6 +10,7 @@
 #include <exception>
 #include <algorithm>
 #include <cstring>
+#include <memory>
 
 jack_port_t* (*jack_port_register_dylibloader_wrapper_jack_orig)( jack_client_t*,const char*,const char*, unsigned long, unsigned long);
 int (*jack_port_unregister_dylibloader_wrapper_jack_orig)( jack_client_t*, jack_port_t*);
@@ -67,6 +68,38 @@ const std::vector<PortRenameRule> g_shoopdaloop_rules = {
     { std::regex("loop([0-9]+)_out_([1-9])"), gen_track_output_name },
 };
 
+struct PortWithInternalBuffer {
+    std::vector<jack_default_audio_sample_t> buffer;
+};
+struct PortWithExternalBuffer {
+    jack_default_audio_sample_t* buffer;
+};
+struct FakeOutputPort : PortWithInternalBuffer {
+    jack_port_t* real_port;
+};
+struct RealOutputPort : PortWithExternalBuffer {};
+struct InputPort : PortWithExternalBuffer {};
+
+std::map<jack_port_t*, std::shared_ptr<FakeOutputPort>> fake_output_ports_by_handle;
+std::map<std::string, std::shared_ptr<FakeOutputPort>> fake_output_ports_by_name;
+std::map<jack_port_t*, std::shared_ptr<RealOutputPort>> real_output_ports_by_handle;
+std::map<std::string, std::shared_ptr<RealOutputPort>> real_output_ports_by_name;
+std::map<jack_port_t*, std::shared_ptr<InputPort>> input_ports_by_handle;
+std::map<std::string, std::shared_ptr<InputPort>> input_ports_by_name;
+std::map<std::string, std::string> active_renames;
+
+void* get_fake_output_buffer(jack_port_t* port, jack_nframes_t n_frames) {
+    //TODO
+}
+
+void* jack_port_get_buffer_wrapper(jack_port_t* port, jack_nframes_t n_frames) {
+    auto maybe_fake_output = fake_output_ports_by_handle.find(port);
+    if(maybe_fake_output != fake_output_ports_by_handle.end()) {
+        return get_fake_output_buffer(port, n_frames);
+    }
+}
+
+/*
 std::map<std::string, std::string> active_renames;
 std::map<std::string, PortInfo> active_fake_ports;
 std::map<std::string, PortInfo> active_real_ports;
@@ -74,6 +107,8 @@ std::map<std::string, PortInfo> active_real_ports;
 typedef std::map<std::string, std::vector<jack_default_audio_sample_t>> fake_output_buffers;
 std::map<std::string, std::pair<jack_default_audio_sample_t*, fake_output_buffers>> active_output_buffers; // pair of real buffer and associated fakes
 std::map<std::string, jack_default_audio_sample_t*> active_input_buffers;
+*/
+
 JackProcessCallback process_cb;
 
 // Apply already active renames to a name (faster than a regex every time).
