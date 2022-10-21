@@ -33,9 +33,15 @@ struct PortInfo {
 std::string gen_track_input_name(std::smatch m) {
     int loop_idx = std::stoi(m[1].str());
     std::ostringstream s;
-    s << "track_"
-      << (loop_idx/2/loops_per_track + 1)
-      << std::string((loop_idx % 2) ? "_return_" : "_in_")
+    if (loop_idx <= 1) {
+        // First loop pair is for the master loop.
+        s << "master_loop";
+    } else {
+        // Other pairs are for the tracks.
+        s << "track_" << ((loop_idx-2)/2/loops_per_track + 1);
+    }
+    
+    s << std::string((loop_idx % 2) ? "_return_" : "_in_")
       << m[2].str();
     return s.str();
 }
@@ -43,9 +49,14 @@ std::string gen_track_input_name(std::smatch m) {
 std::string gen_track_output_name(std::smatch m) {
     int loop_idx = std::stoi(m[1].str());
     std::ostringstream s;
-    s << "track_"
-      << (loop_idx/2/loops_per_track + 1)
-      << std::string((loop_idx % 2) ? "_out_" : "_send_")
+    if (loop_idx <= 1) {
+        // First loop pair is for the master loop.
+        s << "master_loop";
+    } else {
+        // Other pairs are for the tracks.
+        s << "track_" << ((loop_idx-2)/2/loops_per_track + 1);
+    }
+    s << std::string((loop_idx % 2) ? "_out_" : "_send_")
       << m[2].str();
     return s.str();
 }
