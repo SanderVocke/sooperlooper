@@ -213,6 +213,7 @@ int jack_port_unregister_wrapper(jack_client_t* client, jack_port_t* port) {
         return jack_port_unregister_dylibloader_wrapper_jack_orig(client, port);
     }
     // TODO: active renames update
+    return 0;
 }
 
 jack_nframes_t jack_port_get_total_latency_wrapper( jack_client_t* client, jack_port_t* port) {
