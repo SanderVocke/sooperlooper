@@ -105,6 +105,22 @@ struct OptionInfo
 	string loadsession;
 };
 
+#include <dlfcn.h>
+#include <stdio.h>
+#include <unistd.h>
+
+void sigUsr2Handler(int sig)
+{
+    void (*_mcleanup)(void);
+    _mcleanup = (void (*)(void))dlsym(RTLD_DEFAULT, "_mcleanup");
+    if (_mcleanup != NULL) {
+		 fprintf(stderr, "Exiting on SIGUSR2\n");
+         _mcleanup();
+         _exit(0);
+	} else {
+		fprintf(stderr, "Unable to find gprof exit hook\n");
+	}
+}
 
 static void usage(char *argv0)
 {
@@ -279,6 +295,8 @@ int main(int argc, char** argv)
 	OptionInfo option_info;
 	CommandMap & cmdmap = CommandMap::instance();
 	//setup_signals();
+
+	signal(SIGUSR2, sigUsr2Handler);
 	
 	
 	parse_options (argc, argv, option_info);

@@ -44,7 +44,7 @@ if test "$ac_cv_prog_cxx" = "no" ; then
     #   CXXFLAGS="$CXXFLAGS -Wall"
     #fi
 
-    #OPT_CXXFLAGS="-D_REENTRANT -O6 -fomit-frame-pointer -ffast-math -fstrength-reduce -funroll-loops -fmove-all-movables"
+    #OPT_CXXFLAGS="-D_REENTRANT -O6 -ffast-math -fstrength-reduce -funroll-loops -fmove-all-movables"
 
 
 

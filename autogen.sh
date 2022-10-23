@@ -213,7 +213,7 @@ elif echo \$target_cpu | grep "i*86" >/dev/null; then
    # pretty good assumption
    mmx="-mmmx" 
    sse="-msse -mfpmath=sse"
-   OPT_FLAGS="-D_REENTRANT -Os -fomit-frame-pointer \$mmx \$sse"   
+   OPT_FLAGS="-D_REENTRANT -Os \$mmx \$sse"   
  else
   cat /proc/cpuinfo | grep mmx >/dev/null
   if test \$? = 0; then
@@ -231,14 +231,14 @@ elif echo \$target_cpu | grep "i*86" >/dev/null; then
  
   AC_DEFINE(x86, 1, "Nope its intel")
   if test "\$target_cpu" = "i586"; then
-    OPT_FLAGS="-DREENTRANT -O2 -march=i586 -fomit-frame-pointer"
+    OPT_FLAGS="-DREENTRANT -O2 -march=i586"
   elif test "\$target_cpu" = "i686"; then
-    OPT_FLAGS="-D_REENTRANT -O2 -march=i686 -fomit-frame-pointer"
+    OPT_FLAGS="-D_REENTRANT -O2 -march=i686"
     if test "\$gcc_major_version" -ge "3"; then
       OPT_FLAGS="\$OPT_FLAGS \$mmx \$sse \$dreidnow"
     fi
   else
-    OPT_FLAGS="-D_REENTRANT -O2 -fomit-frame-pointer"
+    OPT_FLAGS="-D_REENTRANT -O2"
   fi
  fi
 fi

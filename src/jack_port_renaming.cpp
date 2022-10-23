@@ -82,6 +82,7 @@ struct RealInputPort {
 struct FakeOutputPort  {
     std::vector<jack_default_audio_sample_t> buffer;
     std::shared_ptr<RealOutputPort> real_port;
+    bool requested;
 };
 struct FakeInputPort {
     std::shared_ptr<RealInputPort> real_port;
@@ -110,6 +111,7 @@ void* jack_port_get_buffer_wrapper(jack_port_t* port, jack_nframes_t n_frames) {
         // Return our fake buffer. Resizing should only happen after a buffer size change
         auto &vec = fake_port.buffer;
         if(vec.size() != (size_t)n_frames) { vec.resize((size_t)n_frames); }
+        fake_port.requested = true;
         return (void*)vec.data();
     }
     auto maybe_input = fake_input_ports_by_handle.find(port);
@@ -238,11 +240,18 @@ int process_cb_wrapper(jack_nframes_t nframes, void *arg) {
         it.second->buffer = NULL;
         it.second->fake_buffers_merged = 0;
     }
+    for (auto &it : fake_output_ports_by_handle) {
+        it.second->requested = false;
+    }
 
     auto result = process_cb(nframes, arg);
 
     // Mix outputs into their real buffer ports
     for (auto &it : fake_output_ports_by_handle) {
+        if(!it.second->requested) {
+            continue;
+        }
+
         auto &input_buf = it.second->buffer;
         auto &output_buf = it.second->real_port->buffer;
 
