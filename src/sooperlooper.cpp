@@ -48,6 +48,8 @@
 using namespace SooperLooper;
 using namespace std;
 
+bool g_print_profiling_output = false;
+
 //extern void sl_init ();
 //extern	void sl_fini ();
 
@@ -62,7 +64,7 @@ Transmitter  error (Transmitter::Error);
 #define DEFAULT_LOOP_TIME 40.0f
 
 
-char *optstring = "c:l:j:p:m:t:U:S:D:L:qVh";
+char *optstring = "c:l:j:p:m:t:U:S:D:L:qVhP";
 
 struct option long_options[] = {
 	{ "help", 0, 0, 'h' },
@@ -78,6 +80,7 @@ struct option long_options[] = {
 	{ "load-midi-binding", 1, 0, 'm' },
 	{ "ping-url", 1, 0, 'U' },
 	{ "version", 0, 0, 'V' },
+	{ "profile", 0, 0, 'P' },
 	{ 0, 0, 0, 0 }
 };
 
@@ -142,6 +145,7 @@ static void usage(char *argv0)
 	fprintf(stderr, "  -q , --quiet                 do not output status to stderr\n");
 	fprintf(stderr, "  -h , --help                  this usage output\n");
 	fprintf(stderr, "  -V , --version               show version only\n");
+	fprintf(stderr, "  -P , --profile               show profiling output\n");
 
 }
 
@@ -165,6 +169,9 @@ static void parse_options (int argc, char **argv, OptionInfo & option_info)
 			break;
 		case 'V':
 			option_info.show_version++;
+			break;
+		case 'P':
+			g_print_profiling_output = true;
 			break;
 		case 'q':
 			option_info.quiet = true;

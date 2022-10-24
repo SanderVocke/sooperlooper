@@ -52,6 +52,8 @@ using namespace sigc;
 
 #define TEMPO_DIFF(t1, t2) (fabs(t1-t2) > 0.000001)
 
+extern bool g_print_profiling_output;
+
 //#define DEBUG 1
 
 Engine::Engine ()
@@ -966,22 +968,24 @@ Engine::process (nframes_t nframes)
 
 	auto end = std::chrono::high_resolution_clock::now();
 
-	total_time += std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
-	prepare_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_prepare - start).count();
-	process_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_process - finish_prepare).count();
-	common_outs_time += std::chrono::duration_cast<std::chrono::duration<double>>(end - finish_process).count();
-	times_measured++;
+	if(g_print_profiling_output) {
+		total_time += std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+		prepare_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_prepare - start).count();
+		process_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_process - finish_prepare).count();
+		common_outs_time += std::chrono::duration_cast<std::chrono::duration<double>>(end - finish_process).count();
+		times_measured++;
 
-	if (std::chrono::duration_cast<std::chrono::duration<double>>(end - last_report).count() > 1.0) {
-		last_report = end;
-		std::cout << "Engine::process took (total, prepare, process, common out) ["
-				  << (total_time / (double)times_measured * 1000.0) << ", "
-		          << (prepare_time / (double)times_measured * 1000.0) << ", "
-				  << (process_time / (double)times_measured * 1000.0) << ", "
-				  << (common_outs_time / (double)times_measured * 1000.0)
-				  << "] ms (" << times_measured << " measuremts)." << std::endl;
-		times_measured = 0;
-		total_time = prepare_time = process_time = common_outs_time = 0.0;
+		if (std::chrono::duration_cast<std::chrono::duration<double>>(end - last_report).count() > 1.0) {
+			last_report = end;
+			std::cout << "Engine::process took (total, prepare, process, common out) ["
+					<< (total_time / (double)times_measured * 1000.0) << ", "
+					<< (prepare_time / (double)times_measured * 1000.0) << ", "
+					<< (process_time / (double)times_measured * 1000.0) << ", "
+					<< (common_outs_time / (double)times_measured * 1000.0)
+					<< "] ms (" << times_measured << " measuremts)." << std::endl;
+			times_measured = 0;
+			total_time = prepare_time = process_time = common_outs_time = 0.0;
+		}
 	}	
 	
 	return 0;

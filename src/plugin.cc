@@ -47,6 +47,7 @@ using namespace SooperLooper;
 
 bool g_debug_doprocessing = true;
 bool g_skip_latencybuf = true;
+extern bool g_print_profiling_output;
 
 
 /*****************************************************************************/
@@ -4830,27 +4831,29 @@ runSooperLooper(LADSPA_Handle Instance,
 
   	auto end = std::chrono::high_resolution_clock::now();
 
-	total_time += std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
-	prepare_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_prepare - start).count();
-	latencybuf_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_latencybuf - finish_prepare).count();
-	events_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_events - finish_latencybuf).count();
-	process_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_processing - finish_events).count();
-	rest_time += std::chrono::duration_cast<std::chrono::duration<double>>(end - finish_processing).count();
-	times_measured++;
+	if (g_print_profiling_output) {
+		total_time += std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+		prepare_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_prepare - start).count();
+		latencybuf_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_latencybuf - finish_prepare).count();
+		events_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_events - finish_latencybuf).count();
+		process_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_processing - finish_events).count();
+		rest_time += std::chrono::duration_cast<std::chrono::duration<double>>(end - finish_processing).count();
+		times_measured++;
 
-	if (std::chrono::duration_cast<std::chrono::duration<double>>(end - last_report).count() > 1.0) {
-		last_report = end;
-		std::cout << "runSooperLooper took (total, prepare, latencybuf, events, process, rest) ["
-				  << (total_time / (double)times_measured * 1000.0) << ", "
-				  << (prepare_time / (double)times_measured * 1000.0) << ", "
-				  << (latencybuf_time / (double)times_measured * 1000.0) << ", "
-				  << (events_time / (double)times_measured * 1000.0) << ", "
-				  << (process_time / (double)times_measured * 1000.0) << ", "
-				  << (rest_time / (double)times_measured * 1000.0)
-				  << "] ms (" << times_measured << " measuremts)." << std::endl;
-		times_measured = 0;
-		total_time = prepare_time = process_time = latencybuf_time = rest_time = events_time = 0.0;
-	}	
+		if (std::chrono::duration_cast<std::chrono::duration<double>>(end - last_report).count() > 1.0) {
+			last_report = end;
+			std::cout << "runSooperLooper took (total, prepare, latencybuf, events, process, rest) ["
+					<< (total_time / (double)times_measured * 1000.0) << ", "
+					<< (prepare_time / (double)times_measured * 1000.0) << ", "
+					<< (latencybuf_time / (double)times_measured * 1000.0) << ", "
+					<< (events_time / (double)times_measured * 1000.0) << ", "
+					<< (process_time / (double)times_measured * 1000.0) << ", "
+					<< (rest_time / (double)times_measured * 1000.0)
+					<< "] ms (" << times_measured << " measuremts)." << std::endl;
+			times_measured = 0;
+			total_time = prepare_time = process_time = latencybuf_time = rest_time = events_time = 0.0;
+		}	
+	}
   
 }
 
