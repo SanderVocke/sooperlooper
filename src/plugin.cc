@@ -30,6 +30,7 @@
 #include <cstdlib>
 #include <cfloat>
 #include <iostream>
+#include <chrono>
 
 using namespace std;
 
@@ -43,6 +44,9 @@ using namespace std;
 #include "event.hpp"
 
 using namespace SooperLooper;
+
+bool g_debug_doprocessing = true;
+bool g_skip_latencybuf = true;
 
 
 /*****************************************************************************/
@@ -1684,6 +1688,16 @@ void
 runSooperLooper(LADSPA_Handle Instance,
 	       unsigned long SampleCount)
 {
+	// TODO for time measurement
+	static double total_time = 0.0;
+	static double prepare_time = 0.0;
+	static double latencybuf_time = 0.0;
+	static double events_time = 0.0;
+	static double process_time = 0.0;
+	static double rest_time = 0.0;
+	static int times_measured = 0;
+	static auto last_report = std::chrono::high_resolution_clock::now();
+	auto start = std::chrono::high_resolution_clock::now();
 
   LADSPA_Data * pfBuffer;
   LADSPA_Data * pfInput;
@@ -1951,12 +1965,15 @@ runSooperLooper(LADSPA_Handle Instance,
   unsigned long lInputLatency = (unsigned long) (*pLS->pfInputLatency);
   unsigned long lOutputLatency = (unsigned long) (*pLS->pfOutputLatency);
 
-  
+  auto finish_prepare = std::chrono::high_resolution_clock::now();
+
   // copy input signal to input latency buffer
   unsigned long lbuf_wpos = pLS->lInputBufWritePos;
-  for (unsigned long n=0; n < SampleCount; ++n) {
-	  pfInputLatencyBuf[lbuf_wpos]  = pfInput[n];
-	  lbuf_wpos = (lbuf_wpos+1) & pLS->lInputBufMask;
+  if(!g_skip_latencybuf) {
+	for (unsigned long n=0; n < SampleCount; ++n) {
+		pfInputLatencyBuf[lbuf_wpos]  = pfInput[n];
+		lbuf_wpos = (lbuf_wpos+1) & pLS->lInputBufMask;
+	}
   }
 
   // calculate initial offset for reading for input
@@ -1967,7 +1984,8 @@ runSooperLooper(LADSPA_Handle Instance,
   
 	  
   // transitions due to control triggering
-  
+  auto finish_latencybuf = std::chrono::high_resolution_clock::now();
+
   if (lMultiCtrl >= 0 && lMultiCtrl <= 127)
   {
           DBG(fprintf(stderr, "Multictrl val is %ld\n", lMultiCtrl));
@@ -3208,6 +3226,7 @@ runSooperLooper(LADSPA_Handle Instance,
      }		 
 
   }
+  auto finish_events = std::chrono::high_resolution_clock::now();
   
 
   fRate = pLS->fCurrRate;
@@ -3219,6 +3238,7 @@ runSooperLooper(LADSPA_Handle Instance,
   
   lSampleIndex = 0;
 
+	if(g_debug_doprocessing){
   while (lSampleIndex < SampleCount)
   {
      loop = pLS->headLoopChunk;
@@ -4707,6 +4727,8 @@ runSooperLooper(LADSPA_Handle Instance,
 
      // simply play the input out directly
      // no loop has been created yet
+	 // TODO removed for benchmarking
+	 if(true){
      for (;lSampleIndex < SampleCount;
 	  lSampleIndex++)
      {
@@ -4729,9 +4751,12 @@ runSooperLooper(LADSPA_Handle Instance,
 		}
 	}
 	
-     }
-     
+     }}
   }
+  }
+
+  auto finish_processing = std::chrono::high_resolution_clock::now();
+  
   
   // keep track of time between triggers to ignore settling issues
   // pLS->lRecTrigSamples += SampleCount;
@@ -4802,6 +4827,30 @@ runSooperLooper(LADSPA_Handle Instance,
 
   }
   
+
+  	auto end = std::chrono::high_resolution_clock::now();
+
+	total_time += std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+	prepare_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_prepare - start).count();
+	latencybuf_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_latencybuf - finish_prepare).count();
+	events_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_events - finish_latencybuf).count();
+	process_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_processing - finish_events).count();
+	rest_time += std::chrono::duration_cast<std::chrono::duration<double>>(end - finish_processing).count();
+	times_measured++;
+
+	if (std::chrono::duration_cast<std::chrono::duration<double>>(end - last_report).count() > 1.0) {
+		last_report = end;
+		std::cout << "runSooperLooper took (total, prepare, latencybuf, events, process, rest) ["
+				  << (total_time / (double)times_measured * 1000.0) << ", "
+				  << (prepare_time / (double)times_measured * 1000.0) << ", "
+				  << (latencybuf_time / (double)times_measured * 1000.0) << ", "
+				  << (events_time / (double)times_measured * 1000.0) << ", "
+				  << (process_time / (double)times_measured * 1000.0) << ", "
+				  << (rest_time / (double)times_measured * 1000.0)
+				  << "] ms (" << times_measured << " measuremts)." << std::endl;
+		times_measured = 0;
+		total_time = prepare_time = process_time = latencybuf_time = rest_time = events_time = 0.0;
+	}	
   
 }
 

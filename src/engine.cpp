@@ -27,6 +27,7 @@
 #include <pthread.h>
 #include <cerrno>
 #include <time.h>
+#include <chrono>
 
 #include <vector>
 #include <algorithm>
@@ -763,6 +764,14 @@ void Engine::process_rt_loop_manage_events ()
 int
 Engine::process (nframes_t nframes)
 {
+	// TODO for time measurement
+	static double total_time = 0.0;
+	static double prepare_time = 0.0;
+	static double process_time = 0.0;
+	static double common_outs_time = 0.0;
+	static int times_measured = 0;
+	static auto last_report = std::chrono::high_resolution_clock::now();
+	auto start = std::chrono::high_resolution_clock::now();
 	//TentativeLockMonitor lm (_instance_lock, __LINE__, __FILE__);
 	//if (!lm.locked()) {
 	//	return 0;
@@ -799,6 +808,8 @@ Engine::process (nframes_t nframes)
 	size_t midi_n = 0;
 	int fragpos;
 	int m, syncm;
+
+	auto finish_prepare = std::chrono::high_resolution_clock::now();
 	
 	if (num > 0) {
 
@@ -946,10 +957,32 @@ Engine::process (nframes_t nframes)
 
 	}
 
+	auto finish_process = std::chrono::high_resolution_clock::now();
+
 	// scales output and mixes common dry
 	fill_common_outs (nframes);
 
 	_running_frames += nframes;
+
+	auto end = std::chrono::high_resolution_clock::now();
+
+	total_time += std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+	prepare_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_prepare - start).count();
+	process_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_process - finish_prepare).count();
+	common_outs_time += std::chrono::duration_cast<std::chrono::duration<double>>(end - finish_process).count();
+	times_measured++;
+
+	if (std::chrono::duration_cast<std::chrono::duration<double>>(end - last_report).count() > 1.0) {
+		last_report = end;
+		std::cout << "Engine::process took (total, prepare, process, common out) ["
+				  << (total_time / (double)times_measured * 1000.0) << ", "
+		          << (prepare_time / (double)times_measured * 1000.0) << ", "
+				  << (process_time / (double)times_measured * 1000.0) << ", "
+				  << (common_outs_time / (double)times_measured * 1000.0)
+				  << "] ms (" << times_measured << " measuremts)." << std::endl;
+		times_measured = 0;
+		total_time = prepare_time = process_time = common_outs_time = 0.0;
+	}	
 	
 	return 0;
 }

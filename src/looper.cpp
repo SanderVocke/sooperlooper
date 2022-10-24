@@ -31,6 +31,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <libgen.h>
+#include <chrono>
 
 #ifdef HAVE_SNDFILE
 #include <sndfile.h>
@@ -56,7 +57,9 @@ using namespace RubberBand;
 extern	LADSPA_Descriptor* create_sl_descriptor ();
 extern	void cleanup_sl_descriptor (LADSPA_Descriptor *);
 
-
+const bool g_compute_input_peak = false;
+const bool g_compute_output_peak = false;
+const bool g_discrete_inputs_only = true;
 
 static const double MinResamplingRate = 0.25f;
 static const double MaxResamplingRate = 8.0f;
@@ -1140,6 +1143,16 @@ Looper::run (nframes_t offset, nframes_t nframes)
 void
 Looper::run_loops (nframes_t offset, nframes_t nframes)
 {
+	// TODO for time measurement
+	static double total_time = 0.0;
+	static double buffers_inputpeak = 0.0;
+	static double process_time = 0.0;
+	static double passthrough_outputpeak = 0.0;
+	static double rest_time = 0.0;
+	static int times_measured = 0;
+	static auto last_report = std::chrono::high_resolution_clock::now();
+	auto start = std::chrono::high_resolution_clock::now();
+
 	//LADSPA_Data * inbuf = 0 , *outbuf = 0, *real_inbuf = 0;
 	nframes_t alt_frames = nframes;
 	float currdry = _curr_dry;
@@ -1221,7 +1234,9 @@ Looper::run_loops (nframes_t offset, nframes_t nframes)
 				
 				curr_ing = _curr_input_gain;
 
-				if (_have_discrete_io && real_inbufs[i]) {
+				if (g_discrete_inputs_only && _have_discrete_io && !real_inbufs[i]) {
+					// nada
+				} else if (_have_discrete_io && real_inbufs[i]) {
 					for (nframes_t pos=0; pos < nframes; ++pos) {
 						curr_ing += ing_delta;
 						_tmp_io_bufs[i][pos] = curr_ing * (real_inbufs[i][pos] + comin[pos]);
@@ -1254,9 +1269,13 @@ Looper::run_loops (nframes_t offset, nframes_t nframes)
 		if (inbufs[i] == 0) continue;
 		
 		// calculate input peak
-		compute_peak (inbufs[i], nframes, _input_peak);
+		if(g_compute_input_peak) {
+			compute_peak (inbufs[i], nframes, _input_peak);
+		}
 
 	}
+
+	auto end_buffers_peaks = std::chrono::high_resolution_clock::now();
 
 	if (resampled) {
 		for (unsigned int i=0; i < _chan_count; ++i)
@@ -1425,6 +1444,8 @@ Looper::run_loops (nframes_t offset, nframes_t nframes)
 		}
 	}
 
+	auto end_process = std::chrono::high_resolution_clock::now();
+
 		
 	for (unsigned int i=0; i < _chan_count; ++i)
 	{
@@ -1446,10 +1467,14 @@ Looper::run_loops (nframes_t offset, nframes_t nframes)
 		}
 
 		// calculate output peak post mixing with dry
-		compute_peak (outbufs[i], nframes, _output_peak);
+		if(g_compute_output_peak) {
+			compute_peak (outbufs[i], nframes, _output_peak);
+		}
 		
 		
 	}
+
+	auto end_passthrough_and_output_peak = std::chrono::high_resolution_clock::now();
 
 	if (resampled) {
 		// resample out sync
@@ -1486,6 +1511,28 @@ Looper::run_loops (nframes_t offset, nframes_t nframes)
         _curr_wet = _target_wet;
     }
 
+	auto end = std::chrono::high_resolution_clock::now();
+
+	total_time += std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+	buffers_inputpeak += std::chrono::duration_cast<std::chrono::duration<double>>(end_buffers_peaks - start).count();
+	process_time += std::chrono::duration_cast<std::chrono::duration<double>>(end_process - end_buffers_peaks).count();
+	passthrough_outputpeak += std::chrono::duration_cast<std::chrono::duration<double>>(end_passthrough_and_output_peak - end_process).count();
+	rest_time += std::chrono::duration_cast<std::chrono::duration<double>>(end - end_passthrough_and_output_peak).count();
+	times_measured++;
+
+	if (std::chrono::duration_cast<std::chrono::duration<double>>(end - last_report).count() > 1.0) {
+		last_report = end;
+		std::cout << "run_loops took (total, buffers and input peak, process, pasthrough and output peak, rest) ["
+				  << (total_time / (double)times_measured * 1000.0) << ", "
+		          << (buffers_inputpeak / (double)times_measured * 1000.0) << ", "
+				  << (process_time / (double)times_measured * 1000.0) << ", "
+				  << (passthrough_outputpeak / (double)times_measured * 1000.0) << ", "
+				  << (rest_time / (double)times_measured * 1000.0)
+				  << "] ms (" << times_measured << " measuremts)." << std::endl;
+		times_measured = 0;
+		total_time = buffers_inputpeak = process_time = passthrough_outputpeak = rest_time = 0.0;
+	}	
+	
 }
 
 
