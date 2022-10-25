@@ -17,6 +17,7 @@
 **  
 */
 
+#include "audio_driver.hpp"
 #if HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -46,6 +47,8 @@
 #include "utils.hpp"
 #include "panner.hpp"
 #include "command_map.hpp"
+
+#include <jack/midiport.h>
 
 
 
@@ -288,6 +291,25 @@ Looper::initialize (unsigned int index, unsigned int chan_count, float loopsecs,
 		_lp_filter[i]->set_cutoff (_src_in_ratio * _lp_filter[i]->get_samplerate() * 0.48f);
 		
 		
+	}
+
+	if (_have_discrete_io) 
+	{
+		snprintf(tmpstr, sizeof(tmpstr), "loop%d_midi_in", _index);
+		
+		if (!_driver->create_midi_input_port (tmpstr, _midi_input_port)) {
+			
+			cerr << "cannot register loop MIDI input\n";
+			_have_discrete_io = false;
+		}
+		
+		snprintf(tmpstr, sizeof(tmpstr), "loop%d_midi_out", _index);
+		
+		if (!_driver->create_midi_output_port (tmpstr, _midi_output_port))
+		{
+			cerr << "cannot register loop MIDI output\n";
+			_have_discrete_io = false;
+		}
 	}
 
 	size_t comnouts = _driver->get_engine()->get_common_output_count();
@@ -1166,6 +1188,32 @@ Looper::run_loops (nframes_t offset, nframes_t nframes)
 	bool  resampled = ports[Rate] != 1.0f;
 	bool  stretched = _stretch_ratio != 1.0;
 	bool  pitched = _pitch_shift != 0.0;
+
+	// Handle MIDI
+	auto midi_inbuf = _driver->get_midi_input_port_buffer(_midi_input_port, nframes);
+	auto midi_outbuf = _driver->get_midi_output_port_buffer(_midi_output_port, nframes);
+	descriptor->connect_port (_instances[0], MIDIInputBuffer, (LADSPA_Data*) midi_inbuf);
+	descriptor->connect_port (_instances[0], MIDIOutputBuffer, (LADSPA_Data*) midi_outbuf);
+	for (size_t i=1; i< _chan_count; i++) {
+		descriptor->connect_port (_instances[i], MIDIInputBuffer, (LADSPA_Data*) nullptr);
+		descriptor->connect_port (_instances[i], MIDIOutputBuffer, (LADSPA_Data*) nullptr);
+	}
+	
+	// auto n_in_events = jack_midi_get_event_count(midi_inbuf);
+	// for(size_t idx=0; idx<n_in_events; idx++) {
+	// 	jack_midi_event_t event;
+	// 	jack_midi_event_get(&event, midi_inbuf, idx);
+	// 	auto stored_size = sizeof(midi_event_metadata_t) + event.size;
+	// 	auto available_size = sizeof(midi_data) - midi_data_len;
+	// 	if(stored_size > available_size) {
+	// 		std::cout << "Ignoring incoming MIDI event: no space left" << std::endl;
+	// 	}
+	// 	unsigned char* metadata_ptr = &(midi_data[midi_data_len]);
+	// 	unsigned char* data_ptr = &(midi_data[midi_data_len + sizeof(midi_event_metadata_t)]);
+	// 	*metadata_ptr = { event.time, event.size };
+	// 	memcpy((void*)data_ptr, (void*)event.buffer, event.size);
+	// 	midi_data_len = (data_ptr - midi_data + event.size);
+	// }
 
 	if (resampled) {
 		_src_data.end_of_input = 0;

@@ -31,6 +31,8 @@
 #include <cfloat>
 #include <iostream>
 #include <chrono>
+#include "audio_driver.hpp"
+#include <jack/midiport.h>
 
 using namespace std;
 
@@ -49,6 +51,26 @@ bool g_debug_doprocessing = true;
 bool g_skip_latencybuf = true;
 extern bool g_print_profiling_output;
 
+
+midi_event_metadata_t *peek_event_metadata(unsigned char * event_data) {
+	return (midi_event_metadata_t*) event_data;
+}
+
+unsigned char* next_event_data(unsigned char* event_data) {
+	auto metadata = peek_event_metadata(event_data);
+	return event_data + sizeof(midi_event_metadata_t) + metadata->size;
+}
+
+unsigned char* put_event(unsigned char* event_data, size_t space_available, midi_event_t const& event) {
+	if(event.size > space_available) {
+		return nullptr;
+	}
+
+	*((midi_event_metadata_t*)event_data) = { event.time, event.size };
+	memcpy((void*)(event_data + sizeof(midi_event_metadata_t)), (void*) event.buffer, event.size);
+
+	return event_data + sizeof(midi_event_metadata_t) + event.size;
+}
 
 /*****************************************************************************/
 //#define LOOPDEBUG
@@ -805,6 +827,12 @@ connectPortToSooperLooper(LADSPA_Handle Instance,
 	 break;
       case SyncOutputPort:
 	 pLS->pfSyncOutput = DataLocation;
+	 break;
+	  case MIDIInputBuffer:
+	 pLS->pvMidiInputBuffer = DataLocation;
+	 break;
+	  case MIDIOutputBuffer:
+	 pLS->pvMidiOutputBuffer = DataLocation;
 	 break;
 
       case State:
@@ -1816,6 +1844,9 @@ runSooperLooper(LADSPA_Handle Instance,
   useFeedbackPlay = (bool) *(pLS->pfUseFeedbackPlay);
   
   fTapTrig = *(pLS->pfTapCtrl);
+
+  void* midi_input_buffer = (void*)pLS->pvMidiInputBuffer;
+  void* midi_output_buffer = (void*)pLS->pvMidiOutputBuffer;
 
   
   if (lMultiCtrl == pLS->lLastMultiCtrl)
@@ -3228,7 +3259,9 @@ runSooperLooper(LADSPA_Handle Instance,
 
   }
   auto finish_events = std::chrono::high_resolution_clock::now();
-  
+  void* midi_inbuf = (void*) pLS->pvMidiInputBuffer;
+  void* midi_outbuf = (void*) pLS->pvMidiOutputBuffer;
+  auto n_in_events = jack_midi_get_event_count(midi_inbuf);
 
   fRate = pLS->fCurrRate;
   

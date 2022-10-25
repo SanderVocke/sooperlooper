@@ -76,6 +76,8 @@ enum AudioPort {
 	AudioOutputPort,
 	SyncInputPort,
 	SyncOutputPort,
+	MIDIInputBuffer,
+	MIDIOutputBuffer,
 	PORT_COUNT // must be last
 };
 
@@ -384,7 +386,10 @@ typedef struct {
 
 	LADSPA_Data * pfWaiting;    
 	LADSPA_Data * pfRateOutput;
-	LADSPA_Data * pfNextStateOut;    
+	LADSPA_Data * pfNextStateOut;
+
+	LADSPA_Data * pvMidiInputBuffer;
+	LADSPA_Data * pvMidiOutputBuffer;
 	
 } SooperLooperI;
 
