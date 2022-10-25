@@ -1213,23 +1213,6 @@ Looper::run_loops (nframes_t offset, nframes_t nframes)
 			jack_midi_event_write(midi_outbuf, event.time, event.buffer, event.size);
 		}
 	}
-	//}
-	
-	// auto n_in_events = jack_midi_get_event_count(midi_inbuf);
-	// for(size_t idx=0; idx<n_in_events; idx++) {
-	// 	jack_midi_event_t event;
-	// 	jack_midi_event_get(&event, midi_inbuf, idx);
-	// 	auto stored_size = sizeof(midi_event_metadata_t) + event.size;
-	// 	auto available_size = sizeof(midi_data) - midi_data_len;
-	// 	if(stored_size > available_size) {
-	// 		std::cout << "Ignoring incoming MIDI event: no space left" << std::endl;
-	// 	}
-	// 	unsigned char* metadata_ptr = &(midi_data[midi_data_len]);
-	// 	unsigned char* data_ptr = &(midi_data[midi_data_len + sizeof(midi_event_metadata_t)]);
-	// 	*metadata_ptr = { event.time, event.size };
-	// 	memcpy((void*)data_ptr, (void*)event.buffer, event.size);
-	// 	midi_data_len = (data_ptr - midi_data + event.size);
-	// }
 
 	if (resampled) {
 		_src_data.end_of_input = 0;

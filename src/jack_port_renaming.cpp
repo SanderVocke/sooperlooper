@@ -139,14 +139,21 @@ void* jack_port_get_buffer_wrapper(jack_port_t* port, jack_nframes_t n_frames) {
             if (real_port.buffer == NULL) {
                 real_port.buffer =
                     jack_port_get_buffer_dylibloader_wrapper_jack_orig(real_port.handle, n_frames);
+                real_port.midi_cleared = false;
             }
         }
 
-        // Return our fake buffer. Resizing should only happen after a buffer size change
-        auto &vec = fake_port.buffer;
-        if(vec.size() != (size_t)n_frames) { vec.resize((size_t)n_frames); }
-        fake_port.requested = true;
-        return (void*)vec.data();
+        if (fake_port.is_midi) {
+            // For fake midi outputs, return handle to fake port so we can lookup in
+            // MIDI-related wrappers.
+            return (void*) &fake_port;
+        } else {
+            // Return our fake buffer. Resizing should only happen after a buffer size change
+            auto &vec = fake_port.buffer;
+            if(vec.size() != (size_t)n_frames) { vec.resize((size_t)n_frames); }
+            fake_port.requested = true;
+            return (void*)vec.data();
+        }
     }
     auto maybe_input = fake_input_ports_by_handle.find(port);
     if(maybe_input != fake_input_ports_by_handle.end()) {
@@ -154,16 +161,20 @@ void* jack_port_get_buffer_wrapper(jack_port_t* port, jack_nframes_t n_frames) {
 
         if (!fake_port.hide) {
             // Request the associated real input buffer if not done yet
+            auto &real_port = *fake_port.real_port;
             if (fake_port.real_port->buffer == NULL) {
                 fake_port.real_port->buffer = (jack_default_audio_sample_t*)
-                    jack_port_get_buffer_dylibloader_wrapper_jack_orig(port, n_frames);
+                    jack_port_get_buffer_dylibloader_wrapper_jack_orig(real_port.handle, n_frames);
             }
-            // Now return it
-            return (void*) fake_port.real_port->buffer;
-        } else {
+        }
+
+        if (fake_port.is_midi && fake_port.hide) {
             // Return the port handle as a buffer handle, so we can identify
             // it for special handling in callbacks
-            return (void*) &fake_port;
+            return (void*) &fake_port;            
+        } else {
+            // Now return it
+            return (void*) fake_port.real_port->buffer;
         }
     }
     
@@ -245,7 +256,7 @@ jack_port_t* jack_port_register_wrapper(jack_client_t* client, const char* name,
             fake_port->real_port = real_port;
         } else {
             // Mark the returned buffer as a hidden buffer for fast lookup later
-            hidden_buffers.insert((void*)fake_port->buffer.data());
+            hidden_buffers.insert((void*)fake_port.get());
         }
 
         jack_port_t *handle = (jack_port_t*)fake_port.get();
@@ -293,12 +304,6 @@ jack_nframes_t jack_midi_get_event_count_wrapper(void* buffer) {
         return 0;
     }
 
-    auto it = fake_input_ports_by_handle.find((jack_port_t*)buffer);
-    if(it != fake_input_ports_by_handle.end()) {
-        // Get events from the associated real port
-        return jack_midi_get_event_count_dylibloader_wrapper_jack_orig(it->second->real_port->handle);
-    }
-
     return jack_midi_get_event_count_dylibloader_wrapper_jack_orig(buffer);
 }
 
@@ -306,12 +311,6 @@ int jack_midi_event_get_wrapper(jack_midi_event_t *event, void *buffer, uint32_t
     if(hidden_buffers.find(buffer) != hidden_buffers.end()) {
         // Hidden ports never have events.
         return ENODATA;
-    }
-
-    auto it = fake_input_ports_by_handle.find((jack_port_t*)buffer);
-    if(it != fake_input_ports_by_handle.end()) {
-        // Get events from the associated real port
-        return jack_midi_event_get_dylibloader_wrapper_jack_orig(event, it->second->real_port->buffer, event_index);
     }
 
     return jack_midi_event_get_dylibloader_wrapper_jack_orig(event, buffer, event_index);
@@ -370,7 +369,6 @@ int process_cb_wrapper(jack_nframes_t nframes, void *arg) {
     for (auto &it : active_real_output_ports) {
         it.second->buffer = NULL;
         it.second->fake_buffers_merged = 0;
-        it.second->midi_cleared = false;
     }
     for (auto &it : fake_output_ports_by_handle) {
         it.second->requested = false;
