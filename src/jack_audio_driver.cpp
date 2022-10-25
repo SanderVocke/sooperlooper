@@ -384,36 +384,39 @@ JackAudioDriver::destroy_input_port (port_id_t portid)
 sample_t *
 JackAudioDriver::get_input_port_buffer (port_id_t port, nframes_t nframes)
 {
-	// not locked 
-	if (!_jack || port > _input_ports.size() || port == 0) return 0;
 
 	if (port < 0) {
 		return (sample_t*) nullptr;
 	}
-	return (sample_t*) jack_port_get_buffer (_midi_input_ports[port-1], nframes);
+
+	// not locked 
+	if (!_jack || port > _input_ports.size() || port == 0) return 0;
+	return (sample_t*) jack_port_get_buffer (_input_ports[port-1], nframes);
 }
 
 sample_t *
 JackAudioDriver::get_output_port_buffer (port_id_t port, nframes_t nframes)
 {
-	// not locked 
-	if (!_jack || port > _output_ports.size() || port == 0) return 0;
-
 	if (port < 0) {
 		return (sample_t*) nullptr;
 	}
+
+	// not locked 
+	if (!_jack || port > _output_ports.size() || port == 0) return 0;
+
 	return (sample_t*) jack_port_get_buffer (_output_ports[port-1], nframes);	
 }
 
 void *
 JackAudioDriver::get_midi_input_port_buffer (port_id_t port, nframes_t nframes)
 {
-	// not locked 
-	if (!_jack || port > _input_ports.size() || port == 0) return 0;
 
 	if(port > 0) {
 		return NULL;
 	}
+
+	// not locked 
+	if (!_jack || -port > _midi_input_ports.size() || port == 0) return 0;
 
 	return jack_port_get_buffer (_midi_input_ports[-port-1], nframes);
 }
@@ -421,14 +424,15 @@ JackAudioDriver::get_midi_input_port_buffer (port_id_t port, nframes_t nframes)
 void *
 JackAudioDriver::get_midi_output_port_buffer (port_id_t port, nframes_t nframes)
 {
-	// not locked 
-	if (!_jack || port > _output_ports.size() || port == 0) return 0;
 
 	if(port > 0) {
 		return NULL;
 	}
 
-	return (sample_t*) jack_port_get_buffer (_output_ports[-port-1], nframes);	
+	// not locked 
+	if (!_jack || -port > _output_ports.size() || port == 0) return 0;
+
+	return (sample_t*) jack_port_get_buffer (_midi_output_ports[-port-1], nframes);	
 }
 
 nframes_t

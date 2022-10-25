@@ -48,7 +48,7 @@
 #include "panner.hpp"
 #include "command_map.hpp"
 
-#include <jack/midiport.h>
+#include "jack_wrapper.h"
 
 
 
@@ -60,9 +60,9 @@ using namespace RubberBand;
 extern	LADSPA_Descriptor* create_sl_descriptor ();
 extern	void cleanup_sl_descriptor (LADSPA_Descriptor *);
 
-const bool g_compute_input_peak = false;
-const bool g_compute_output_peak = false;
-const bool g_discrete_inputs_only = true;
+const bool g_compute_input_peak = true;
+const bool g_compute_output_peak = true;
+const bool g_discrete_inputs_only = false;
 
 static const double MinResamplingRate = 0.25f;
 static const double MaxResamplingRate = 8.0f;
@@ -1189,15 +1189,31 @@ Looper::run_loops (nframes_t offset, nframes_t nframes)
 	bool  stretched = _stretch_ratio != 1.0;
 	bool  pitched = _pitch_shift != 0.0;
 
-	// Handle MIDI
-	auto midi_inbuf = _driver->get_midi_input_port_buffer(_midi_input_port, nframes);
-	auto midi_outbuf = _driver->get_midi_output_port_buffer(_midi_output_port, nframes);
+	// Only the first looper gets a MIDI connection to handle midi messages
+	auto midi_inbuf = _midi_input_port ? _driver->get_midi_input_port_buffer(_midi_input_port, nframes) : nullptr;
+	auto midi_outbuf = _midi_output_port ? _driver->get_midi_output_port_buffer(_midi_output_port, nframes) : nullptr;
 	descriptor->connect_port (_instances[0], MIDIInputBuffer, (LADSPA_Data*) midi_inbuf);
 	descriptor->connect_port (_instances[0], MIDIOutputBuffer, (LADSPA_Data*) midi_outbuf);
 	for (size_t i=1; i< _chan_count; i++) {
 		descriptor->connect_port (_instances[i], MIDIInputBuffer, (LADSPA_Data*) nullptr);
 		descriptor->connect_port (_instances[i], MIDIOutputBuffer, (LADSPA_Data*) nullptr);
 	}
+
+	if(midi_outbuf) {
+		jack_midi_clear_buffer(midi_outbuf);
+	}
+
+	// Do the passthrough propagation of incoming events here, outside the inner processing loop
+	if(get_control_value(Event::DryLevel) > 0.0 && midi_inbuf && midi_outbuf) {
+		// For any significant passthrough level, just pass events straight on
+		auto n_in_events = jack_midi_get_event_count(midi_inbuf);
+		for(size_t idx=0; idx<n_in_events; idx++) {
+			jack_midi_event_t event;
+			jack_midi_event_get(&event, midi_inbuf, idx);
+			jack_midi_event_write(midi_outbuf, event.time, event.buffer, event.size);
+		}
+	}
+	//}
 	
 	// auto n_in_events = jack_midi_get_event_count(midi_inbuf);
 	// for(size_t idx=0; idx<n_in_events; idx++) {

@@ -41,8 +41,6 @@
 
 #include <pbd/xml++.h>
 
-constexpr size_t LOOPER_MAX_MIDI_DATA_SIZE = 8192;
-
 namespace RubberBand {
 	class RubberBandStretcher;
 }
@@ -184,11 +182,6 @@ class Looper
 	LADSPA_Data        * _dummy_buf;
 
 	LADSPA_Data        ** _tmp_io_bufs;
-
-	// Serialized MIDI events (midi_event_metadata_t followed by data bytes)
-	// are stored in here
-	unsigned char      midi_data[LOOPER_MAX_MIDI_DATA_SIZE];
-	size_t             midi_data_len = 0;
 
 	Panner             * _panner; 
 

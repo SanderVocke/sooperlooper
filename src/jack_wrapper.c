@@ -108,7 +108,15 @@
 #define jack_set_error_function jack_set_error_function_dylibloader_orig_jack
 #define jack_set_info_function jack_set_info_function_dylibloader_orig_jack
 #define jack_free jack_free_dylibloader_orig_jack
+#define jack_midi_get_event_count jack_midi_get_event_count_dylibloader_orig_jack
+#define jack_midi_event_get jack_midi_event_get_dylibloader_orig_jack
+#define jack_midi_clear_buffer jack_midi_clear_buffer_dylibloader_orig_jack
+#define jack_midi_max_event_size jack_midi_max_event_size_dylibloader_orig_jack
+#define jack_midi_event_reserve jack_midi_event_reserve_dylibloader_orig_jack
+#define jack_midi_event_write jack_midi_event_write_dylibloader_orig_jack
+#define jack_midi_get_lost_event_count jack_midi_get_lost_event_count_dylibloader_orig_jack
 #include <jack/jack.h>
+#include <jack/midiport.h>
 #undef jack_release_timebase
 #undef jack_set_sync_callback
 #undef jack_set_sync_timeout
@@ -212,6 +220,13 @@
 #undef jack_set_error_function
 #undef jack_set_info_function
 #undef jack_free
+#undef jack_midi_get_event_count
+#undef jack_midi_event_get
+#undef jack_midi_clear_buffer
+#undef jack_midi_max_event_size
+#undef jack_midi_event_reserve
+#undef jack_midi_event_write
+#undef jack_midi_get_lost_event_count
 #include <dlfcn.h>
 #include <stdio.h>
 int (*jack_release_timebase_dylibloader_wrapper_jack)( jack_client_t*);
@@ -317,6 +332,13 @@ jack_time_t (*jack_get_time_dylibloader_wrapper_jack)( void);
 void (*jack_set_error_function_dylibloader_wrapper_jack)( void*);
 void (*jack_set_info_function_dylibloader_wrapper_jack)( void*);
 void (*jack_free_dylibloader_wrapper_jack)( void*);
+jack_nframes_t (*jack_midi_get_event_count_dylibloader_wrapper_jack)(void*);
+int (*jack_midi_event_get_dylibloader_wrapper_jack)(jack_midi_event_t*, void*, uint32_t);
+void (*jack_midi_clear_buffer_dylibloader_wrapper_jack)(void*);
+size_t (*jack_midi_max_event_size_dylibloader_wrapper_jack)(void*);
+jack_midi_data_t* (*jack_midi_event_reserve_dylibloader_wrapper_jack)(void*, jack_nframes_t, size_t);
+int (*jack_midi_event_write_dylibloader_wrapper_jack)(void*, jack_nframes_t, const jack_midi_data_t*, size_t);
+uint32_t (*jack_midi_get_lost_event_count_dylibloader_wrapper_jack)(void*);
 int initialize_jack(int verbose) {
   void *handle;
   char *error;
@@ -1146,6 +1168,62 @@ int initialize_jack(int verbose) {
   }
 // jack_free
   *(void **) (&jack_free_dylibloader_wrapper_jack) = dlsym(handle, "jack_free");
+  if (verbose) {
+    error = dlerror();
+    if (error != NULL) {
+      fprintf(stderr, "%s\n", error);
+    }
+  }
+  // jack_midi_get_event_count
+  *(void **) (&jack_midi_get_event_count_dylibloader_wrapper_jack) = dlsym(handle, "jack_midi_get_event_count");
+  if (verbose) {
+    error = dlerror();
+    if (error != NULL) {
+      fprintf(stderr, "%s\n", error);
+    }
+  }
+  // jack_midi_event_get
+  *(void **) (&jack_midi_event_get_dylibloader_wrapper_jack) = dlsym(handle, "jack_midi_event_get");
+  if (verbose) {
+    error = dlerror();
+    if (error != NULL) {
+      fprintf(stderr, "%s\n", error);
+    }
+  }
+  // jack_midi_clear_buffer
+  *(void **) (&jack_midi_clear_buffer_dylibloader_wrapper_jack) = dlsym(handle, "jack_midi_clear_buffer");
+  if (verbose) {
+    error = dlerror();
+    if (error != NULL) {
+      fprintf(stderr, "%s\n", error);
+    }
+  }
+  // jack_midi_max_event_size
+  *(void **) (&jack_midi_max_event_size_dylibloader_wrapper_jack) = dlsym(handle, "jack_midi_max_event_size");
+  if (verbose) {
+    error = dlerror();
+    if (error != NULL) {
+      fprintf(stderr, "%s\n", error);
+    }
+  }
+  // jack_midi_event_reserve
+  *(void **) (&jack_midi_event_reserve_dylibloader_wrapper_jack) = dlsym(handle, "jack_midi_event_reserve");
+  if (verbose) {
+    error = dlerror();
+    if (error != NULL) {
+      fprintf(stderr, "%s\n", error);
+    }
+  }
+  // jack_midi_event_write
+  *(void **) (&jack_midi_event_write_dylibloader_wrapper_jack) = dlsym(handle, "jack_midi_event_write");
+  if (verbose) {
+    error = dlerror();
+    if (error != NULL) {
+      fprintf(stderr, "%s\n", error);
+    }
+  }
+  // jack_midi_get_lost_event_count
+  *(void **) (&jack_midi_get_lost_event_count_dylibloader_wrapper_jack) = dlsym(handle, "jack_midi_get_lost_event_count");
   if (verbose) {
     error = dlerror();
     if (error != NULL) {

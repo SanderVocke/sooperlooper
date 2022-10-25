@@ -32,7 +32,7 @@
 #include <iostream>
 #include <chrono>
 #include "audio_driver.hpp"
-#include <jack/midiport.h>
+#include "jack_wrapper.h"
 
 using namespace std;
 
@@ -48,7 +48,7 @@ using namespace std;
 using namespace SooperLooper;
 
 bool g_debug_doprocessing = true;
-bool g_skip_latencybuf = true;
+bool g_skip_latencybuf = false;
 extern bool g_print_profiling_output;
 
 
@@ -987,6 +987,7 @@ static LoopChunk* beginMultiply(SooperLooperI *pLS, LoopChunk *loop)
 	   pLS->fFeedFadeDelta = 1.0f / xfadeSamples;
 	   
 	   pLS->nextState = STATE_PLAY;
+	   pLS->midi_head = pLS->midi_data;
 
 	   return loop;
    }
@@ -1624,6 +1625,7 @@ static LoopChunk * transitionToNext(SooperLooperI *pLS, LoopChunk *loop, int nex
 	      pLS->fFeedSrcFadeDelta = 1.0f / xfadeSamples;
 	      if (loop) {
 		      pLS->state = STATE_PLAY;
+			  pLS->midi_head = pLS->midi_data;
 		      nextstate = STATE_PLAY;
 		      pLS->wasMuted = false;
 		      if (pLS->fCurrRate > 0) {
@@ -1699,6 +1701,7 @@ static LoopChunk * transitionToNext(SooperLooperI *pLS, LoopChunk *loop, int nex
    else {
       DBG(fprintf(stderr,"%u:%u  Next state is -1?? Why?\n", pLS->lLoopIndex, pLS->lChannelIndex));
       pLS->state = STATE_PLAY;
+	  pLS->midi_head = pLS->midi_data;
       pLS->wasMuted = false;
    }
 
@@ -1844,9 +1847,6 @@ runSooperLooper(LADSPA_Handle Instance,
   useFeedbackPlay = (bool) *(pLS->pfUseFeedbackPlay);
   
   fTapTrig = *(pLS->pfTapCtrl);
-
-  void* midi_input_buffer = (void*)pLS->pvMidiInputBuffer;
-  void* midi_output_buffer = (void*)pLS->pvMidiOutputBuffer;
 
   
   if (lMultiCtrl == pLS->lLastMultiCtrl)
@@ -2041,6 +2041,7 @@ runSooperLooper(LADSPA_Handle Instance,
 		      if (fSyncMode == 0.0f && (fTrigThresh==0.0f) && !bRoundIntegerTempo) {
 			      // skip trig stop
 			      pLS->state = STATE_PLAY;
+				  pLS->midi_head = pLS->midi_data;
 			      pLS->wasMuted = false;
 			      pLS->fLoopFadeDelta = -1.0f / xfadeSamples;
 			      pLS->fPlayFadeDelta = 1.0f / xfadeSamples;
@@ -2062,6 +2063,7 @@ runSooperLooper(LADSPA_Handle Instance,
 		      else {
 			      pLS->state = STATE_TRIG_STOP;
 			      pLS->nextState = STATE_PLAY;
+				  pLS->midi_head = pLS->midi_data;
 			      DBG(fprintf(stderr,"%u:%u  Entering TRIG_STOP state\n", pLS->lLoopIndex, pLS->lChannelIndex));
 		      }
 		      break;
@@ -2083,6 +2085,7 @@ runSooperLooper(LADSPA_Handle Instance,
 		    pLS->fFeedSrcFadeDelta = 1.0f / xfadeSamples;
 			      
 		    pLS->state = STATE_PLAY;
+			pLS->midi_head = pLS->midi_data;
 		    pLS->wasMuted = false;
 		    DBG(fprintf(stderr,"%u:%u  Entering PLAY state after Multiply NEW loop\n", pLS->lLoopIndex, pLS->lChannelIndex));
 
@@ -2115,6 +2118,7 @@ runSooperLooper(LADSPA_Handle Instance,
 		    pLS->fFeedSrcFadeDelta = 1.0f / xfadeSamples;
 			      
 		    pLS->state = STATE_PLAY;
+			pLS->midi_head = pLS->midi_data;
 		    pLS->wasMuted = false;
 		    DBG(fprintf(stderr,"%u:%u  Entering PLAY state after Multiply NEW loop\n", pLS->lLoopIndex, pLS->lChannelIndex));
 
@@ -2150,6 +2154,7 @@ runSooperLooper(LADSPA_Handle Instance,
 		      if ((fOverdubQuantized == 0.0f) || (fSyncMode == 0.0f && fQuantizeMode == QUANT_OFF)) {
 
 			      pLS->state = STATE_PLAY;
+				  pLS->midi_head = pLS->midi_data;
 			      pLS->wasMuted = false;
 			      DBG(fprintf(stderr,"%u:%u  Entering PLAY state\n", pLS->lLoopIndex, pLS->lChannelIndex));
 			      pLS->fLoopFadeDelta = -1.0f / xfadeSamples;
@@ -2160,6 +2165,7 @@ runSooperLooper(LADSPA_Handle Instance,
 		      }
 		      else {
 			      pLS->nextState = STATE_PLAY;
+				  pLS->midi_head = pLS->midi_data;
 			      pLS->waitingForSync = 1;
 		      }
 		      break;
@@ -2280,6 +2286,7 @@ runSooperLooper(LADSPA_Handle Instance,
 					      
 					      DBG(fprintf(stderr, "%u:%u  waiting for sync multi end\n", pLS->lLoopIndex, pLS->lChannelIndex));
 					      pLS->nextState = STATE_PLAY;
+						  pLS->midi_head = pLS->midi_data;
 					      pLS->waitingForSync = 1;
 				      }
 			      }
@@ -2429,6 +2436,7 @@ runSooperLooper(LADSPA_Handle Instance,
 	      case STATE_REPLACE:
 		      if ((bReplaceQuantized == 0.0f) || (fSyncMode == 0.0f && fQuantizeMode == QUANT_OFF)) {
 			      pLS->state = STATE_PLAY;
+				  pLS->midi_head = pLS->midi_data;
 			      pLS->wasMuted = false;
 			      DBG(fprintf(stderr,"%u:%u  Entering PLAY state\n", pLS->lLoopIndex, pLS->lChannelIndex));
 			      pLS->fLoopFadeDelta = -1.0f / xfadeSamples;
@@ -2439,6 +2447,7 @@ runSooperLooper(LADSPA_Handle Instance,
 			      pfSyncOutput[0] = 1.0f;
 		      } else {
 			      pLS->nextState = STATE_PLAY;
+				  pLS->midi_head = pLS->midi_data;
 			      pLS->waitingForSync = 1;
 		      }
 		      break;
@@ -2508,6 +2517,7 @@ runSooperLooper(LADSPA_Handle Instance,
 	      case STATE_SUBSTITUTE:
 		      if ((bReplaceQuantized == 0.0f) || (fSyncMode == 0.0f && fQuantizeMode == QUANT_OFF)) {
 			      pLS->state = STATE_PLAY;
+				  pLS->midi_head = pLS->midi_data;
 			      pLS->wasMuted = false;
 			      DBG(fprintf(stderr,"Entering PLAY state\n"));
 			      pLS->fLoopFadeDelta = -1.0f / xfadeSamples;
@@ -2519,6 +2529,7 @@ runSooperLooper(LADSPA_Handle Instance,
 			      
 		      } else {
 			      pLS->nextState = STATE_PLAY;
+				  pLS->midi_head = pLS->midi_data;
 			      pLS->waitingForSync = 1;
 		      }
 		      break;
@@ -2616,6 +2627,7 @@ runSooperLooper(LADSPA_Handle Instance,
 			       }
 			       else {
 				       pLS->state = STATE_PLAY;
+					   pLS->midi_head = pLS->midi_data;
 				       pLS->wasMuted = false;
 				       DBG(fprintf(stderr,"%u:%u  Entering PLAY state continuous\n", pLS->lLoopIndex, pLS->lChannelIndex));
 				       pLS->fPlayFadeDelta = 1.0f / xfadeSamples;
@@ -2641,6 +2653,7 @@ runSooperLooper(LADSPA_Handle Instance,
 			       }
 			       else {
 				       pLS->nextState = STATE_PLAY;
+					   pLS->midi_head = pLS->midi_data;
 			       }
 			       pLS->waitingForSync = 1;	 
 		       }
@@ -2792,6 +2805,7 @@ runSooperLooper(LADSPA_Handle Instance,
 	      case STATE_ONESHOT:		 
 		 // this restarts the loop from beginnine
 		 pLS->state = STATE_PLAY;
+		 pLS->midi_head = pLS->midi_data;
 		 pLS->wasMuted = false;
 		 if (loop) {
 			 loop->dCurrPos = (loop->lLoopLength - loop->lSyncPos) + fSyncOffsetSamples;
@@ -2894,6 +2908,7 @@ runSooperLooper(LADSPA_Handle Instance,
 						} else { //undo with proper xfade
 							pLS->state = STATE_UNDO;
 							pLS->nextState = STATE_PLAY;
+							pLS->midi_head = pLS->midi_data;
 						}
 					} else {
 							LoopChunk *dead;
@@ -2953,6 +2968,7 @@ runSooperLooper(LADSPA_Handle Instance,
 
 		if (pLS->state == STATE_OFF) {
 			pLS->state = STATE_PLAY;
+			pLS->midi_head = pLS->midi_data;
 			pLS->wasMuted = false;
 		} else if (pLS->state == STATE_OFF_MUTE) {
 			pLS->state = STATE_MUTE;
@@ -2976,6 +2992,7 @@ runSooperLooper(LADSPA_Handle Instance,
 			if (loop->next) {
 				pLS->state = STATE_REDO_ALL;
 				pLS->nextState = STATE_PLAY;
+				pLS->midi_head = pLS->midi_data;
 			}
 		}
 		
@@ -3012,6 +3029,7 @@ runSooperLooper(LADSPA_Handle Instance,
 			   
 			   if (pLS->state == STATE_OFF) {
 				   pLS->state = STATE_PLAY;
+				   pLS->midi_head = pLS->midi_data;
 				   pLS->wasMuted = false;
 			   } else if(pLS->state == STATE_OFF_MUTE) {
 				   pLS->state = STATE_MUTE;
@@ -3029,6 +3047,7 @@ runSooperLooper(LADSPA_Handle Instance,
 				   if (loop->next) {
 					   pLS->state = STATE_REDO;
 					   pLS->nextState = STATE_PLAY;
+					   pLS->midi_head = pLS->midi_data;
 					   pLS->fPlayFadeAtten = 0.0f;
 				   }
 			   }
@@ -3058,6 +3077,7 @@ runSooperLooper(LADSPA_Handle Instance,
 		 // and starts playing in reverse
 		      fRate = pLS->fCurrRate *= -1.0f;
 		      pLS->state = STATE_PLAY;
+			  pLS->midi_head = pLS->midi_data;
 		      pLS->fLoopFadeDelta = -1.0f / xfadeSamples;
 		      pLS->fPlayFadeDelta = 1.0f / xfadeSamples;
 		      pLS->fFeedFadeDelta = 1.0f / xfadeSamples;
@@ -3258,10 +3278,15 @@ runSooperLooper(LADSPA_Handle Instance,
      }		 
 
   }
+
   auto finish_events = std::chrono::high_resolution_clock::now();
+
   void* midi_inbuf = (void*) pLS->pvMidiInputBuffer;
   void* midi_outbuf = (void*) pLS->pvMidiOutputBuffer;
   auto n_in_events = jack_midi_get_event_count(midi_inbuf);
+  auto &midi_data = pLS->midi_data;
+  auto &midi_data_len = pLS->midi_data_len;
+  auto &midi_head = pLS->midi_head;
 
   fRate = pLS->fCurrRate;
   
@@ -3308,6 +3333,7 @@ runSooperLooper(LADSPA_Handle Instance,
 				  DBG(fprintf(stderr,"%u:%u  Entering RECORD state: syncmode=%g\n", pLS->lLoopIndex, pLS->lChannelIndex, fSyncMode));
 				  
 				  pLS->state = STATE_RECORD;
+				  pLS->midi_head = pLS->midi_data;
 				  // force rate to be 1.0
 				  fRate = pLS->fCurrRate = 1.0f;
 				  
@@ -3357,7 +3383,9 @@ runSooperLooper(LADSPA_Handle Instance,
 			  else {
 				  DBG(fprintf(stderr, "out of memory! back to PLAY mode\n"));
 				  pLS->state = STATE_PLAY;
+				  pLS->midi_head = pLS->midi_data;
 				  pLS->wasMuted = false;
+				  pLS->midi_head = pLS->midi_data;
 			  }
 
 			  break;
@@ -3378,8 +3406,31 @@ runSooperLooper(LADSPA_Handle Instance,
 			       (unsigned) (pLS->pSampleBuf + pLS->lBufferSize) ));
 		   pLS->state = STATE_PLAY;
 		   pLS->wasMuted = false;
+		   pLS->midi_head = pLS->midi_data;
 		   goto passthrough;
    	   }
+
+	   //process MIDI events
+		if (midi_inbuf && midi_outbuf) {
+			for(size_t idx=0; idx<n_in_events; idx++) {
+				jack_midi_event_t event;
+				jack_midi_event_get(&event, midi_inbuf, idx);
+				size_t event_sample_idx = event.time + lrint(loop->dCurrPos);
+				std::cout << "Processing MIDI: " << event.time << " -> " << event_sample_idx << "\n";
+					//auto stored_size = sizeof(midi_event_metadata_t) + event.size;
+					auto available_size = sizeof(midi_data) - midi_data_len;
+					auto result = put_event(midi_head, available_size, midi_event_t {
+						event_sample_idx,
+						event.size,
+						event.buffer
+					});
+					if (!result) { // out of space 
+						break;
+					}
+					midi_head = result;
+					midi_data_len = midi_head - midi_data;
+			}
+		}
 		
 	   for (;lSampleIndex < SampleCount;
 		lSampleIndex++)
@@ -3830,6 +3881,7 @@ runSooperLooper(LADSPA_Handle Instance,
 			      pLS->rounding = false;
 			      pLS->state = STATE_PLAY;
 			      pLS->wasMuted = false;
+				  pLS->midi_head = pLS->midi_data;
 			      undoLoop(pLS, false);
 			      goto passthrough;
 		      }
@@ -4055,6 +4107,7 @@ runSooperLooper(LADSPA_Handle Instance,
 				 pLS->wasMuted = false;
 				 undoLoop(pLS, false);
 				 DBG(fprintf(stderr,"dfMultiply Undone! Out of memory!\n"));
+				 pLS->midi_head = pLS->midi_data;
 				 break;
 			 }
 			 
@@ -4261,6 +4314,7 @@ runSooperLooper(LADSPA_Handle Instance,
 				 pLS->wasMuted = false;
 				 //undoLoop(pLS);
 				 DBG(fprintf(stderr,"Insert finish early! Out of memory!\n"));
+				 pLS->midi_head = pLS->midi_data;
 				 break;
 			 }
 			 else {
@@ -4297,6 +4351,25 @@ runSooperLooper(LADSPA_Handle Instance,
 	   // play  the input out mixed with the recorded loop.
 	   if (loop && loop->lLoopLength)
 	   {
+			//process MIDI events
+			if (midi_inbuf && midi_outbuf && pLS->state != STATE_MUTE && pLS->state != STATE_PAUSED) {
+				auto bytes_left = midi_data_len - (midi_head - midi_data);
+				midi_event_metadata_t *next_event_metadata = bytes_left > sizeof(midi_event_metadata_t) ? peek_event_metadata(midi_head) : nullptr;
+				while(next_event_metadata != nullptr) {
+					auto const& ev = *next_event_metadata;
+					long process_frame = (long)ev.time - lrint(loop->dCurrPos);
+					if(process_frame >= SampleCount) { //done for this processing iteration
+						break;
+					}
+					if(process_frame >= 0) { // will skip messages that we are behind on
+						jack_midi_event_write(midi_outbuf, (size_t)process_frame, midi_head + sizeof(midi_event_metadata_t), ev.size);
+					}
+					midi_head += sizeof(midi_event_metadata_t) + ev.size;
+					bytes_left = midi_data_len - (midi_head - midi_data);
+					next_event_metadata = bytes_left > sizeof(midi_event_metadata_t) ? peek_event_metadata(midi_head) : nullptr;
+				}
+			}
+
 	      tmpWet = fWet;
 	      
 	      if(pLS->state == STATE_SCRATCH)
@@ -4565,6 +4638,8 @@ runSooperLooper(LADSPA_Handle Instance,
  		 }
 		 
 		 if (loop->dCurrPos >= loop->lLoopLength) {
+			pLS->midi_head = pLS->midi_data;
+
 		    if (pLS->state == STATE_ONESHOT) {
 		       // done with one shot
 			    DBG(fprintf(stderr, "%u:%u  finished ONESHOT  lcurrPos=%d\n", pLS->lLoopIndex, pLS->lChannelIndex, lCurrPos));

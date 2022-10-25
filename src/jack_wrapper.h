@@ -110,7 +110,15 @@
 #define jack_set_error_function jack_set_error_function_dylibloader_orig_jack
 #define jack_set_info_function jack_set_info_function_dylibloader_orig_jack
 #define jack_free jack_free_dylibloader_orig_jack
+#define jack_midi_get_event_count jack_midi_get_event_count_dylibloader_orig_jack
+#define jack_midi_event_get jack_midi_event_get_dylibloader_orig_jack
+#define jack_midi_clear_buffer jack_midi_clear_buffer_dylibloader_orig_jack
+#define jack_midi_max_event_size jack_midi_max_event_size_dylibloader_orig_jack
+#define jack_midi_event_reserve jack_midi_event_reserve_dylibloader_orig_jack
+#define jack_midi_event_write jack_midi_event_write_dylibloader_orig_jack
+#define jack_midi_get_lost_event_count jack_midi_get_lost_event_count_dylibloader_orig_jack
 #include <jack/jack.h>
+#include <jack/midiport.h>
 #undef jack_release_timebase
 #undef jack_set_sync_callback
 #undef jack_set_sync_timeout
@@ -214,6 +222,13 @@
 #undef jack_set_error_function
 #undef jack_set_info_function
 #undef jack_free
+#undef jack_midi_get_event_count
+#undef jack_midi_event_get
+#undef jack_midi_clear_buffer
+#undef jack_midi_max_event_size
+#undef jack_midi_event_reserve
+#undef jack_midi_event_write
+#undef jack_midi_get_lost_event_count
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -320,6 +335,13 @@ extern "C" {
 #define jack_set_error_function jack_set_error_function_dylibloader_wrapper_jack
 #define jack_set_info_function jack_set_info_function_dylibloader_wrapper_jack
 #define jack_free jack_free_dylibloader_wrapper_jack
+#define jack_midi_get_event_count jack_midi_get_event_count_dylibloader_wrapper_jack
+#define jack_midi_event_get jack_midi_event_get_dylibloader_wrapper_jack
+#define jack_midi_clear_buffer jack_midi_clear_buffer_dylibloader_wrapper_jack
+#define jack_midi_max_event_size jack_midi_max_event_size_dylibloader_wrapper_jack
+#define jack_midi_event_reserve jack_midi_event_reserve_dylibloader_wrapper_jack
+#define jack_midi_event_write jack_midi_event_write_dylibloader_wrapper_jack
+#define jack_midi_get_lost_event_count jack_midi_get_lost_event_count_dylibloader_wrapper_jack
 extern int (*jack_release_timebase_dylibloader_wrapper_jack)( jack_client_t*);
 extern int (*jack_set_sync_callback_dylibloader_wrapper_jack)( jack_client_t*, JackSyncCallback, void*);
 extern int (*jack_set_sync_timeout_dylibloader_wrapper_jack)( jack_client_t*, jack_time_t);
@@ -423,6 +445,13 @@ extern jack_time_t (*jack_get_time_dylibloader_wrapper_jack)( void);
 extern void (*jack_set_error_function_dylibloader_wrapper_jack)( void*);
 extern void (*jack_set_info_function_dylibloader_wrapper_jack)( void*);
 extern void (*jack_free_dylibloader_wrapper_jack)( void*);
+extern jack_nframes_t (*jack_midi_get_event_count)(void*);
+extern int (*jack_midi_event_get)(jack_midi_event_t*, void*, uint32_t);
+extern void (*jack_midi_clear_buffer)(void*);
+extern size_t (*jack_midi_max_event_size)(void*);
+extern jack_midi_data_t* (*jack_midi_event_reserve)(void*, jack_nframes_t, size_t);
+extern int (*jack_midi_event_write)(void*, jack_nframes_t, const jack_midi_data_t*, size_t);
+extern uint32_t (*jack_midi_get_lost_event_count)(void*);
 int initialize_jack(int verbose);
 #ifdef __cplusplus
 }

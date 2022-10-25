@@ -22,6 +22,8 @@
 
 #include "ladspa.h"
 
+constexpr size_t LOOPER_MAX_MIDI_DATA_SIZE = 8192;
+
 // TODO, move the whole looping core into a class
 
 
@@ -390,6 +392,12 @@ typedef struct {
 
 	LADSPA_Data * pvMidiInputBuffer;
 	LADSPA_Data * pvMidiOutputBuffer;
+
+	// Serialized MIDI events (midi_event_metadata_t followed by data bytes)
+	// are stored in here
+	unsigned char      midi_data[LOOPER_MAX_MIDI_DATA_SIZE];
+	unsigned char     *midi_head = midi_data;
+	size_t             midi_data_len = 0;
 	
 } SooperLooperI;
 
