@@ -3420,7 +3420,7 @@ runSooperLooper(LADSPA_Handle Instance,
 					//auto stored_size = sizeof(midi_event_metadata_t) + event.size;
 					auto available_size = sizeof(midi_data) - midi_data_len;
 					auto result = put_event(midi_head, available_size, midi_event_t {
-						event_sample_idx,
+						static_cast<nframes_t>(event_sample_idx),
 						event.size,
 						event.buffer
 					});
