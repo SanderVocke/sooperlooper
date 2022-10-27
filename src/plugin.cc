@@ -4836,8 +4836,6 @@ runSooperLooper(LADSPA_Handle Instance,
 
      // simply play the input out directly
      // no loop has been created yet
-	 // TODO removed for benchmarking
-	 if(true){
      for (;lSampleIndex < SampleCount;
 	  lSampleIndex++)
      {
@@ -4861,7 +4859,6 @@ runSooperLooper(LADSPA_Handle Instance,
 	}
 	
      }}
-  }
   }
 
   auto finish_processing = std::chrono::high_resolution_clock::now();

@@ -60,9 +60,10 @@ using namespace RubberBand;
 extern	LADSPA_Descriptor* create_sl_descriptor ();
 extern	void cleanup_sl_descriptor (LADSPA_Descriptor *);
 
-const bool g_compute_input_peak = true;
-const bool g_compute_output_peak = true;
+const bool g_compute_input_peak = false;
+const bool g_compute_output_peak = false;
 const bool g_discrete_inputs_only = false;
+const bool g_no_input_gain = true;
 
 static const double MinResamplingRate = 0.25f;
 static const double MaxResamplingRate = 8.0f;
@@ -1274,7 +1275,7 @@ Looper::run_loops (nframes_t offset, nframes_t nframes)
 			real_inbufs[i] = 0;
 		}
 
-		if (_use_common_ins || !_have_discrete_io || !real_inbufs[i]) {
+		if (!g_discrete_inputs_only && (_use_common_ins || !_have_discrete_io || !real_inbufs[i])) {
 			// mix common input into this buffer
 			sample_t * comin = _driver->get_engine()->get_common_input_buffer(i);			
 			if (comin)
@@ -1283,9 +1284,7 @@ Looper::run_loops (nframes_t offset, nframes_t nframes)
 				
 				curr_ing = _curr_input_gain;
 
-				if (g_discrete_inputs_only && _have_discrete_io && !real_inbufs[i]) {
-					// nada
-				} else if (_have_discrete_io && real_inbufs[i]) {
+				if (_have_discrete_io && real_inbufs[i]) {
 					for (nframes_t pos=0; pos < nframes; ++pos) {
 						curr_ing += ing_delta;
 						_tmp_io_bufs[i][pos] = curr_ing * (real_inbufs[i][pos] + comin[pos]);
@@ -1305,13 +1304,19 @@ Looper::run_loops (nframes_t offset, nframes_t nframes)
 		}
 		else {
 			// we have discrete and not using common
-			curr_ing = _curr_input_gain;
-			for (nframes_t pos=0; pos < nframes; ++pos) {
-				curr_ing += ing_delta;
+			if(g_no_input_gain) {
+				curr_ing = _curr_input_gain;
+				for (nframes_t pos=0; pos < nframes; ++pos) {
+					curr_ing += ing_delta;
 
-				_tmp_io_bufs[i][pos] = curr_ing * (real_inbufs[i][pos]);
+					_tmp_io_bufs[i][pos] = curr_ing * (real_inbufs[i][pos]);
+				}
+				inbufs[i] = _tmp_io_bufs[i];
+			} else {
+				//memcpy((void*)_tmp_io_bufs[i], (void*)real_inbufs[i], sizeof(SooperLooper::sample_t) * nframes);
+				inbufs[i] = real_inbufs[i];
 			}
-			inbufs[i] = _tmp_io_bufs[i];
+			
 		}
 		
 		// no longer needed
