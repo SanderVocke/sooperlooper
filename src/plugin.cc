@@ -2606,13 +2606,11 @@ runSooperLooper(LADSPA_Handle Instance,
                  pLS->wasMuted = true;
              }
 	         break;
-	       case STATE_MUTE:
-		      // reset for audio ramp
-		      //pLS->lRampSamples = xfadeSamples;
+		   case STATE_MUTE:
 	       case STATE_ONESHOT:
 	       case STATE_PAUSED:
 	       // this enters play mode but from the continuous position
-		       if (loop && ((fMuteQuantized == 0.0f) || (fSyncMode == 0.0f && fQuantizeMode == QUANT_OFF) || pLS->state == STATE_PAUSED)) {
+		       if (loop && ((fMuteQuantized == 0.0f) || (fSyncMode == 0.0f && fQuantizeMode == QUANT_OFF))) {
 			       if (pLS->state == STATE_MUTE && lMultiCtrl == MULTI_PAUSE) {
 				       pLS->state = STATE_PAUSED;
 				       pLS->wasMuted = true;
@@ -2649,9 +2647,12 @@ runSooperLooper(LADSPA_Handle Instance,
 			       }
 			       DBG(fprintf(stderr, "%u:%u  starting syncwait for play from mute\n", pLS->lLoopIndex, pLS->lChannelIndex));
 			       if (pLS->state == STATE_PAUSED && lMultiCtrl == MULTI_MUTE) {
+					   pLS->midi_head = pLS->midi_data;
 				       pLS->nextState = STATE_MUTE;
-			       }
-			       else {
+			       } else if (pLS->state == STATE_MUTE && lMultiCtrl == MULTI_PAUSE) {
+						pLS->midi_head = pLS->midi_data;
+						pLS->nextState = STATE_PAUSED;
+				   } else {
 				       pLS->nextState = STATE_PLAY;
 					   pLS->midi_head = pLS->midi_data;
 			       }
