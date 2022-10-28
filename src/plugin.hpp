@@ -361,6 +361,13 @@ typedef struct {
 	LADSPA_Data *pfOutputLatency;
 	LADSPA_Data *pfTriggerLatency;
 
+	// When MIDI recording starts, any MIDI messages that have arrived
+	// less than this period ago (in seconds) will be recorded at loop
+	// start. This way we can record notes played just slightly too
+	// early.
+	LADSPA_Data *pfMIDIPreRecordGracePeriod;
+
+
 	
 	/* if non zero, the redo command is treated like a tap trigger */
 	LADSPA_Data *pfRedoTapMode;
