@@ -47,8 +47,8 @@ using namespace std;
 
 using namespace SooperLooper;
 
-bool g_debug_doprocessing = true;
-bool g_skip_latencybuf = false;
+const bool g_debug_doprocessing = true;
+const bool g_skip_latencybuf = false;
 extern bool g_print_profiling_output;
 
 
@@ -1724,9 +1724,11 @@ runSooperLooper(LADSPA_Handle Instance,
 	static double total_time = 0.0;
 	static double prepare_time = 0.0;
 	static double latencybuf_time = 0.0;
+	static double passthrough_time = 0.0;
 	static double events_time = 0.0;
 	static double process_time = 0.0;
 	static double rest_time = 0.0;
+	double passthrough_time_this_iter = 0.0;
 	static int times_measured = 0;
 	static auto last_report = std::chrono::high_resolution_clock::now();
 	auto start = std::chrono::high_resolution_clock::now();
@@ -4835,6 +4837,22 @@ runSooperLooper(LADSPA_Handle Instance,
      
     passthrough:
 
+	auto pt_start = std::chrono::high_resolution_clock::now();
+
+	auto const new_version = false;
+
+	if(new_version) {
+
+		memcpy((void*)(&pfOutput[lSampleIndex]), (void*)(&pfInput[lSampleIndex]), sizeof(LADSPA_Data) * (SampleCount - lSampleIndex));
+		// TODO fDry etc.
+		if (fSyncMode != 0 || fQuantizeMode == QUANT_OFF) {
+			memcpy((void*)(&pfSyncOutput[lSampleIndex]), (void*)(&pfSyncInput[lSampleIndex]), sizeof(LADSPA_Data) * (SampleCount - lSampleIndex));
+		}
+
+		lSampleIndex += SampleCount;
+
+		// TODO: samples since sync
+	} else {
      // simply play the input out directly
      // no loop has been created yet
      for (;lSampleIndex < SampleCount;
@@ -4859,7 +4877,14 @@ runSooperLooper(LADSPA_Handle Instance,
 		}
 	}
 	
-     }}
+     }
+
+	}
+
+	 auto pt_end = std::chrono::high_resolution_clock::now();
+	 passthrough_time_this_iter += std::chrono::duration_cast<std::chrono::duration<double>>(pt_end - pt_start).count();
+	 
+	 }
   }
 
   auto finish_processing = std::chrono::high_resolution_clock::now();
@@ -4942,22 +4967,24 @@ runSooperLooper(LADSPA_Handle Instance,
 		prepare_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_prepare - start).count();
 		latencybuf_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_latencybuf - finish_prepare).count();
 		events_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_events - finish_latencybuf).count();
-		process_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_processing - finish_events).count();
+		process_time += std::chrono::duration_cast<std::chrono::duration<double>>(finish_processing - finish_events).count() - passthrough_time_this_iter;
+		passthrough_time += passthrough_time_this_iter;
 		rest_time += std::chrono::duration_cast<std::chrono::duration<double>>(end - finish_processing).count();
 		times_measured++;
 
 		if (std::chrono::duration_cast<std::chrono::duration<double>>(end - last_report).count() > 1.0) {
 			last_report = end;
-			std::cout << "runSooperLooper took (total, prepare, latencybuf, events, process, rest) ["
+			std::cout << "runSooperLooper took (total, prepare, latencybuf, events, process_passthrough, process_rest, rest) ["
 					<< (total_time / (double)times_measured * 1000.0) << ", "
 					<< (prepare_time / (double)times_measured * 1000.0) << ", "
 					<< (latencybuf_time / (double)times_measured * 1000.0) << ", "
 					<< (events_time / (double)times_measured * 1000.0) << ", "
+					<< (passthrough_time / (double)times_measured * 1000.0) << ", "
 					<< (process_time / (double)times_measured * 1000.0) << ", "
 					<< (rest_time / (double)times_measured * 1000.0)
 					<< "] ms (" << times_measured << " measuremts)." << std::endl;
 			times_measured = 0;
-			total_time = prepare_time = process_time = latencybuf_time = rest_time = events_time = 0.0;
+			total_time = prepare_time = process_time = latencybuf_time = rest_time = events_time = passthrough_time = 0.0;
 		}	
 	}
   
