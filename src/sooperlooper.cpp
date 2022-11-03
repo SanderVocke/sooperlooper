@@ -48,7 +48,7 @@
 using namespace SooperLooper;
 using namespace std;
 
-bool g_print_profiling_output = true;
+bool g_print_profiling_output = false;
 
 //extern void sl_init ();
 //extern	void sl_fini ();
